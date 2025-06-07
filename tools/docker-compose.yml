@@ -1,0 +1,48 @@
+version: '3.10-slim'
+
+services:
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: jenkins
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - tools_jenkins_home:/var/jenkins_home
+    networks:
+      - default
+
+  sonarqube:
+    image: sonarqube:community
+    container_name: sonarqube
+    ports:
+      - "9000:9000"
+    environment:
+      - SONAR_JDBC_USERNAME=sonar
+      - SONAR_JDBC_PASSWORD=sonar
+      - SONAR_JDBC_URL=jdbc:postgresql://db:5432/sonar
+    depends_on:
+      - db
+    networks:
+      - default
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+
+  db:
+    image: postgres:13
+    container_name: sonardb
+    environment:
+      - POSTGRES_USER=sonar
+      - POSTGRES_PASSWORD=sonar
+      - POSTGRES_DB=sonar
+    volumes:
+      - postgresql:/var/lib/postgresql/data
+    networks:
+      - default
+
+volumes:
+  tools_jenkins_home:
+  sonarqube_data:
+  sonarqube_extensions:
+  postgresql:

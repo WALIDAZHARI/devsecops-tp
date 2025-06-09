@@ -1,7 +1,9 @@
 from flask import Flask, jsonify, request
 import sqlite3
+from prometheus_flask_exporter import PrometheusMetrics
 
 app = Flask(__name__)
+metrics = PrometheusMetrics(app)
 
 def get_db_connection():
     conn = sqlite3.connect('users.db')

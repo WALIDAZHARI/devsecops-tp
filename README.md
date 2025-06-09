@@ -28,32 +28,33 @@ It incorporates security and automation tools into the development lifecycle, fr
                                    |         Jenkins CI         |
                                    +-------------+--------------+
                                                  |
-                 +------------------+------------------+-----------------+
-                 |                  |                  |                 |
-                 v                  v                  v                 v
-        +--------+------+  +--------+--------+ +--------+------+ +--------+--------+
-        |   Build & Test |  |   SAST (SonarQ) | |  DAST (Trivy) | | Secrets (Vault) |
-        +--------+------+  +--------+--------+ +--------+------+ +--------+--------+
-                 |                                                           |
-                 v                                                           v
-        +--------+------------------------------------------------------------+
-        |                        Docker Image Registry (Local/DockerHub)      |
-        +-------------------------------+-------------------------------------+
-                                        |
-                                        v
-                             +----------+-----------+
-                             |   Kubernetes Cluster |
-                             +----------+-----------+
-                                        |
-                 +----------------------+----------------------+
-                 |                      |                      |
-                 v                      v                      v
-        +--------+--------+   +---------+---------+  +---------+---------+
-        |  user-service   |   |  product-service  |  |  Monitoring Tools  |
-        +--------+--------+   +---------+---------+  +---------+---------+
-                                                |              |
-                                                v              v
-                                           Prometheus       Grafana
+        +-------------+------------+-------------+--------------+------------+
+        |             |                          |                           |
+        v             v                          v                           v
+  +-----+----+  +------+-----+         +---------+-----+             +-------+------+
+  |  Build   |  | SAST (Sonar)|        | DAST (Trivy)  |             | Secrets Mgmt  |
+  +-----+----+  +------+-----+         +---------+-----+             |   (Vault)     |
+        |             |                          |                  +-------+------+
+        +------+------+                          |                          |
+               |                                 |                          |
+               v                                 v                          v
+        +------+---------------------------------+--------------------------+------+
+        |                    Docker Image Registry (DockerHub)                    |
+        +----------------------+--------------------------+------------------------+
+                               |                          |
+                               v                          v
+                    +----------+-----------+      +------+--------+
+                    | Kubernetes Cluster   |      | Monitoring    |
+                    +----------+-----------+      | Stack         |
+                               |                  +------+--------+
+               +---------------+-----------+             |
+               |                           |             v
+       +-------+--------+         +--------+-------+   Grafana
+       | user-service  |         | product-service| 
+       +----------------+         +----------------+
+                                              |
+                                              v
+                                         Prometheus
 ```
 
 ---
@@ -65,14 +66,16 @@ devsecops-tp/
 ├── user-service/
 │   ├── app.py
 │   ├── Dockerfile
-│   └── requirements.txt
+│   ├── requirements.txt
+│   └── Jenkinsfile
 ├── product-service/
 │   ├── app.py
 │   ├── Dockerfile
-│   └── requirements.txt
-├── Jenkinsfile
-├── docker-compose.yml (optional)
-└── README.md
+│   ├── requirements.txt
+│   └── Jenkinsfile
+├── global-pipeline/              # (To be added later)
+│   └── Jenkinsfile               # Full DevSecOps orchestration
+├── README.md
 ```
 
 ---
@@ -148,7 +151,7 @@ docker run -d --name sonarqube \
 
 ---
 
-## 🛡️ Step 5: Trivy for DAST
+## 🛡️ Step 5: Trivy for Image Scanning
 
 ### Install:
 
@@ -165,23 +168,40 @@ trivy image product-service
 
 ---
 
-## 🔐 Step 6: Vault (Secrets Management)
+## 🚨 Step 6: Nuclei for Vulnerability Scanning
+
+```bash
+brew install projectdiscovery/tap/nuclei
+```
+
+### Example Scan:
+
+```bash
+nuclei -u http://localhost:5555
+nuclei -u http://localhost:5556
+```
+
+---
+
+## 🔐 Step 7: Vault for Secrets Management
 
 ```bash
 docker run --cap-add=IPC_LOCK -d --name=dev-vault \
   -p 8200:8200 vault
 ```
 
----
-
-## ☸️ Step 7: Kubernetes
-
-* Use **Minikube** or **Docker Desktop K8s**
-* Write deployment and service YAMLs for both microservices
+* Access: [http://localhost:8200](http://localhost:8200)
 
 ---
 
-## 📊 Step 8: Monitoring
+## ☸️ Step 8: Kubernetes (K8s)
+
+* Use Minikube or Docker Desktop K8s
+* Write `deployment.yaml` and `service.yaml` for both services
+
+---
+
+## 📊 Step 9: Monitoring with Prometheus & Grafana
 
 ### Prometheus
 
@@ -197,13 +217,14 @@ docker run -d -p 9090:9090 --name prometheus \
 docker run -d -p 3000:3000 --name=grafana grafana/grafana
 ```
 
+* Access: [http://localhost:3000](http://localhost:3000)
 * Login: admin / admin
 
 ---
 
-## 📦 Final Jenkins Pipeline (Sample)
+## 📦 Jenkins Pipeline Example
 
-**Jenkinsfile**
+### `user-service/Jenkinsfile`
 
 ```groovy
 pipeline {
@@ -212,23 +233,29 @@ pipeline {
         stage('Build') {
             steps {
                 sh 'docker build -t user-service ./user-service'
-                sh 'docker build -t product-service ./product-service'
             }
         }
-        stage('SAST') {
-            steps {
-                sh 'sonar-scanner ...'
-            }
-        }
-        stage('DAST') {
+        stage('Trivy Scan') {
             steps {
                 sh 'trivy image user-service'
-                sh 'trivy image product-service'
             }
         }
-        stage('Deploy') {
+        stage('SonarQube Analysis') {
             steps {
-                echo 'Deploy to K8s or Docker Compose'
+                echo 'SonarQube analysis step here'
+            }
+        }
+        stage('Push to DockerHub') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                    sh 'docker login -u $USER -p $PASS'
+                    sh 'docker push user-service'
+                }
+            }
+        }
+        stage('Nuclei Scan') {
+            steps {
+                sh 'nuclei -u http://user-service-url'
             }
         }
     }
@@ -237,35 +264,68 @@ pipeline {
 
 ---
 
-## 🛠️ Coming Next
+### `product-service/Jenkinsfile`
 
-* [ ] Finalize `Jenkinsfile`
-* [ ] Add unit tests
-* [ ] Simulate vulnerabilities
-* [ ] Monitor live services
-* [ ] Secure secrets with Vault
+```groovy
+pipeline {
+    agent any
+    stages {
+        stage('Build') {
+            steps {
+                sh 'docker build -t product-service ./product-service'
+            }
+        }
+        stage('Trivy Scan') {
+            steps {
+                sh 'trivy image product-service'
+            }
+        }
+        stage('SonarQube Analysis') {
+            steps {
+                echo 'SonarQube analysis step here'
+            }
+        }
+        stage('Push to DockerHub') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                    sh 'docker login -u $USER -p $PASS'
+                    sh 'docker push product-service'
+                }
+            }
+        }
+        stage('Nuclei Scan') {
+            steps {
+                sh 'nuclei -u http://product-service-url'
+            }
+        }
+    }
+}
+```
 
 ---
 
-## 📌 Contributors
+## ✅ Done So Far
+
+* [x] Created both microservices
+* [x] Added Jenkinsfiles for both services
+* [x] Configured GitHub repositories
+* [x] Installed and configured Jenkins
+* [x] Added SonarQube and Trivy
+* [x] Integrated Prometheus & Grafana
+* [x] Replaced OWASP ZAP with Nuclei
+
+## 🚧 In Progress
+
+* [ ] Full CI/CD Pipeline orchestration
+* [ ] K8s deployment files and automation
+* [ ] Vault integration for secrets
+* [ ] Jenkins global pipeline file
+* [ ] Nuclei configuration with templates
+
+---
+
+## 📌 Contributor
 
 * **Walid Azhari** - DevSecOps Engineer in training
-
----
-
-## ✅ Done So Far:
-
-* [x] Microservices up
-* [x] Git initialized
-* [x] Jenkins + SonarQube working
-
-## 🚧 In Progress:
-
-* [ ] Full pipeline automation
-* [ ] Vulnerability injection & fixing
-* [ ] Monitoring integration
-* [ ] Vault integration
-
----
 
 Let’s build security into DevOps — by design!

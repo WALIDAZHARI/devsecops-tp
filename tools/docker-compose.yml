@@ -1,4 +1,4 @@
-version: '3.10-slim'
+version: '3.10'
 
 services:
   jenkins:
@@ -8,9 +8,9 @@ services:
       - "8080:8080"
       - "50000:50000"
     volumes:
-      - tools_jenkins_home:/var/jenkins_home
+      - jenkins_home:/var/jenkins_home
     networks:
-      - default
+      - devtools
 
   sonarqube:
     image: sonarqube:community
@@ -23,11 +23,11 @@ services:
       - SONAR_JDBC_URL=jdbc:postgresql://db:5432/sonar
     depends_on:
       - db
-    networks:
-      - default
     volumes:
       - sonarqube_data:/opt/sonarqube/data
       - sonarqube_extensions:/opt/sonarqube/extensions
+    networks:
+      - devtools
 
   db:
     image: postgres:13
@@ -39,10 +39,73 @@ services:
     volumes:
       - postgresql:/var/lib/postgresql/data
     networks:
-      - default
+      - devtools
+
+  trivy:
+    image: aquasec/trivy:latest
+    container_name: trivy
+    entrypoint: ["tail", "-f", "/dev/null"]
+    networks:
+      - devtools
+
+  nuclei:
+    image: projectdiscovery/nuclei:latest
+    container_name: nuclei
+    entrypoint: ["tail", "-f", "/dev/null"]
+    volumes:
+      - nuclei_templates:/root/nuclei-templates
+      - nuclei_reports:/root/nuclei-reports
+    networks:
+      - devtools
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - devtools
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - devtools
+      
+  user-service:
+    build:
+      context: ../user-service
+    container_name: user-service
+    ports:
+      - "5555:5555"
+    networks:
+      - devtools
+
+  product-service:
+    build:
+      context: ../product-service
+    container_name: product-service
+    ports:
+      - "5556:5556"
+    networks:
+      - devtools
 
 volumes:
-  tools_jenkins_home:
+  jenkins_home:
   sonarqube_data:
   sonarqube_extensions:
   postgresql:
+  nuclei_templates:
+  nuclei_reports:
+  grafana_data:
+
+networks:
+  devtools:

@@ -2,13 +2,19 @@ version: '3.10'
 
 services:
   jenkins:
+    build:
+      context: .
+      dockerfile: Dockerfile.jenkins
     image: jenkins/jenkins:lts
     container_name: jenkins
+    user: root
+    privileged: true
     ports:
       - "8080:8080"
       - "50000:50000"
     volumes:
       - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - devtools
 
@@ -79,7 +85,7 @@ services:
       - grafana_data:/var/lib/grafana
     networks:
       - devtools
-      
+
   user-service:
     build:
       context: ../user-service

@@ -3,21 +3,27 @@ pipeline {
 
   environment {
     IMAGE_NAME = 'walidazhari/product-service'
-    SHORT_COMMIT = "${env.GIT_COMMIT.take(7)}"
+    SHORT_COMMIT = "${env.GIT_COMMIT?.take(7) ?: 'unknown'}"
     IMAGE_TAG = "${env.BUILD_NUMBER}-${SHORT_COMMIT}"
   }
 
   stages {
+    stage('Clean Workspace') {
+      steps {
+        cleanWs()
+      }
+    }
+
     stage('Checkout') {
       steps {
-        checkout scm
+        git url: 'https://github.com/WALIDAZHARI/devsecops-tp.git', branch: 'main'
       }
     }
 
     stage('Build Docker Image') {
       steps {
         script {
-          dockerImage = docker.build("${IMAGE_NAME}:${IMAGE_TAG}", "product-service/ -f product-service/Dockerfile")
+          dockerImage = docker.build("${IMAGE_NAME}:${IMAGE_TAG}", "-f user-service/Dockerfile user-service")
         }
       }
     }
@@ -45,12 +51,6 @@ pipeline {
           dockerImage.push("latest")
         }
       }
-    }
-  }
-
-  post {
-    always {
-      cleanWs()
     }
   }
 }

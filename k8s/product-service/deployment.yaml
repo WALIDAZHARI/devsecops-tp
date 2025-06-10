@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-service
+  labels:
+    app: product-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: product-service
+  template:
+    metadata:
+      labels:
+        app: product-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "5556"
+    spec:
+      containers:
+      - name: product-service
+        image: walidazhari/product-service:latest
+        ports:
+        - containerPort: 5556
+        env:
+        - name: FLASK_ENV
+          value: "production"
+        - name: DATABASE_PATH
+          value: "/app/data/products.db"
+        volumeMounts:
+        - name: product-data
+          mountPath: /app/data
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 5556
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 5556
+          initialDelaySeconds: 5
+          periodSeconds: 10
+      volumes:
+      - name: product-data
+        persistentVolumeClaim:
+          claimName: product-data-pvc

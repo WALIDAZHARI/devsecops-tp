@@ -1,97 +1,256 @@
-# DevSecOps Project - Microservices Pipeline
+# DevSecOps Workshop - Microservices Pipeline
 
-## 🧠 Project Overview
+## 🎯 Project Overview
 
-This project demonstrates a complete **DevSecOps CI/CD pipeline** for two interactive microservices:
+This workshop demonstrates a comprehensive **DevSecOps CI/CD pipeline** implementation focusing on security, automation, and monitoring. The project consists of two microservices:
 
-* `user-service`
-* `product-service`
+* `user-service`: RESTful service for user management
+* `product-service`: RESTful service for product catalog management
 
-It incorporates security and automation tools into the development lifecycle, from coding and building to testing, deploying, monitoring, and fixing vulnerabilities.
+### 🛠 Technology Stack
+
+#### CI/CD & Version Control
+* **Jenkins**: Automated pipeline orchestration
+* **GitHub**: Source code management and version control
+
+#### Security Tools
+* **Trivy**: Container and filesystem vulnerability scanning
+* **Vault**: Secrets management and encryption
+* **Nuclei**: Dynamic vulnerability scanner
+* **SonarQube**: Code quality and security analysis
+
+#### Containerization & Orchestration
+* **Docker**: Application containerization
+* **Kubernetes**: Container orchestration and scaling
+
+#### Monitoring & Observability
+* **Prometheus**: Metrics collection and alerting
+* **Grafana**: Metrics visualization and dashboards
 
 ---
 
-## 🧱 System Architecture
+## 🏗 System Architecture
 
+```mermaid
+graph TB
+    subgraph "Development"
+        Dev["👨‍💻 Developer"] --> Git["📦 GitHub Repository"]
+        Git --> Jenkins["🔄 Jenkins Pipeline"]
+    end
+
+    subgraph "Security Scanning"
+        Jenkins --> |"Static Analysis"| Sonar["🔍 SonarQube"];
+        Jenkins --> |"Container Scan"| Trivy["🛡️ Trivy Scanner"];
+        Jenkins --> |"Dynamic Scan"| Nuclei["🎯 Nuclei Scanner"];
+    end
+
+    subgraph "Secrets & Security"
+        Jenkins --> Vault["🔐 HashiCorp Vault"]
+        Vault --> |"Inject Secrets"| K8s
+    end
+
+    subgraph "Container Pipeline"
+        Jenkins --> |"Push Images"| DockerHub["🐳 Docker Hub"]
+        DockerHub --> |"Pull Images"| K8s["☸️ Kubernetes Cluster"]
+    end
+
+    subgraph "Application Services"
+        K8s --> UserSvc["👥 User Service"]
+        K8s --> ProdSvc["📦 Product Service"]
+    end
+
+    subgraph "Monitoring & Observability"
+        UserSvc --> Prom["📊 Prometheus"]
+        ProdSvc --> Prom
+        Prom --> Grafana["📈 Grafana Dashboards"]
+    end
+
+classDef primary fill:#f9f,stroke:#333,stroke-width:2px;
+classDef secondary fill:#bbf,stroke:#333,stroke-width:2px;
+classDef security fill:#ff9,stroke:#333,stroke-width:2px;
+
+class Jenkins,K8s primary;
+class Sonar,Trivy,Nuclei,Vault security;
+class Prom,Grafana secondary;
 ```
-                                      +---------------------+
-                                      |   Developers (You)  |
-                                      +----------+----------+
-                                                 |
-                                                 v
-                                   +-------------+--------------+
-                                   |       Git / GitHub         |
-                                   +-------------+--------------+
-                                                 |
-                                                 v
-                                   +-------------+--------------+
-                                   |         Jenkins CI         |
-                                   +-------------+--------------+
-                                                 |
-        +-------------+------------+-------------+--------------+------------+
-        |             |                          |                           |
-        v             v                          v                           v
-  +-----+----+  +------+-----+         +---------+-----+             +-------+------+
-  |  Build   |  | SAST (Sonar)|        | DAST (Trivy)  |             | Secrets Mgmt  |
-  +-----+----+  +------+-----+         +---------+-----+             |   (Vault)     |
-        |             |                          |                  +-------+------+
-        +------+------+                          |                          |
-               |                                 |                          |
-               v                                 v                          v
-        +------+---------------------------------+--------------------------+------+
-        |                    Docker Image Registry (DockerHub)                    |
-        +----------------------+--------------------------+------------------------+
-                               |                          |
-                               v                          v
-                    +----------+-----------+      +------+--------+
-                    | Kubernetes Cluster   |      | Monitoring    |
-                    +----------+-----------+      | Stack         |
-                               |                  +------+--------+
-               +---------------+-----------+             |
-               |                           |             v
-       +-------+--------+         +--------+-------+   Grafana
-       | user-service  |         | product-service| 
-       +----------------+         +----------------+
-                                              |
-                                              v
-                                         Prometheus
+
+### Pipeline Stages
+
+1. **Code Commit & Review**
+   - Source code pushed to GitHub
+   - Automated code review triggers
+
+2. **Security Scanning**
+   - SonarQube: Code quality & SAST
+   - Trivy: Container vulnerability scanning
+   - Nuclei: DAST scanning
+
+3. **Build & Package**
+   - Docker image creation
+   - Security scanning of base images
+   - Push to Docker Hub registry
+
+4. **Secure Deployment**
+   - Vault secret injection
+   - Kubernetes deployment
+   - Service mesh configuration
+
+5. **Monitoring & Alerts**
+   - Prometheus metrics collection
+   - Grafana dashboard visualization
+   - Alert configuration
 ```
 
 ---
 
 ## 📂 Project Structure
 
-```
+```bash
 devsecops-tp/
-├── user-service/
-│   ├── app.py
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   └── Jenkinsfile
-├── product-service/
-│   ├── app.py
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   └── Jenkinsfile
-├── global-pipeline/              # (To be added later)
-│   └── Jenkinsfile               # Full DevSecOps orchestration
-├── README.md
+├── services/
+│   ├── user-service/              # User Management Service
+│   │   ├── src/                   # Application source code
+│   │   │   └── app.py            # Flask application
+│   │   ├── tests/                 # Unit and integration tests
+│   │   ├── Dockerfile            # Container configuration
+│   │   ├── requirements.txt      # Python dependencies
+│   │   └── Jenkinsfile           # CI/CD pipeline
+│   │
+│   └── product-service/          # Product Management Service
+│       ├── src/                  # Application source code
+│       │   └── app.py           # Flask application
+│       ├── tests/                # Unit and integration tests
+│       ├── Dockerfile           # Container configuration
+│       ├── requirements.txt     # Python dependencies
+│       └── Jenkinsfile          # CI/CD pipeline
+│
+├── k8s/                         # Kubernetes Configuration
+│   ├── user-service/            # User service manifests
+│   │   ├── deployment.yaml
+│   │   └── service.yaml
+│   ├── product-service/         # Product service manifests
+│   │   ├── deployment.yaml
+│   │   └── service.yaml
+│   └── monitoring/              # Monitoring stack
+│       ├── prometheus/
+│       └── grafana/
+│
+├── security/                    # Security Configurations
+│   ├── trivy/                  # Trivy policies
+│   │   └── config.yaml
+│   ├── nuclei/                 # Nuclei templates
+│   │   └── custom-tests/
+│   ├── vault/                  # Vault configuration
+│   │   └── policies/
+│   └── sonar/                  # SonarQube configuration
+│       └── sonar-project.properties
+│
+└── README.md                    # Project documentation
 ```
 
 ---
 
-## 🚀 Step-by-Step Instructions
+## 🚀 Workshop Instructions
 
-### ✅ Step 1: Git Initialization
+### Prerequisites
 
-```bash
-cd devsecops-tp
-git init
-git remote add origin https://github.com/your-username/devsecops-tp.git
-git add .
-git commit -m "Initial commit"
-git push -u origin master
-```
+1. **Development Tools**
+   ```bash
+   # Install Docker & Docker Compose
+   brew install docker docker-compose
+
+   # Install Kubernetes tools
+   brew install kubectl minikube helm
+
+   # Install Security tools
+   brew install hashicorp/tap/vault trivy
+   ```
+
+2. **Jenkins Setup**
+   ```bash
+   # Start Jenkins container
+   docker run -d \
+     --name jenkins \
+     -p 8080:8080 \
+     -p 50000:50000 \
+     -v jenkins_home:/var/jenkins_home \
+     -v /var/run/docker.sock:/var/run/docker.sock \
+     jenkins/jenkins:lts
+
+   # Get initial admin password
+   docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
+   ```
+
+3. **Vault Configuration**
+   ```bash
+   # Start Vault in dev mode
+   docker run -d \
+     --name vault \
+     -p 8200:8200 \
+     -e 'VAULT_DEV_ROOT_TOKEN_ID=myroot' \
+     vault:latest
+
+   # Configure Vault
+   export VAULT_ADDR='http://127.0.0.1:8200'
+   export VAULT_TOKEN='myroot'
+   vault secrets enable -path=secret kv-v2
+   ```
+
+4. **Kubernetes Setup**
+   ```bash
+   # Start Minikube
+   minikube start --driver=docker
+
+   # Install Prometheus & Grafana
+   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+   helm install monitoring prometheus-community/kube-prometheus-stack
+   ```
+
+### Pipeline Configuration
+
+1. **Jenkins Credentials**
+   - Add GitHub token
+   - Configure Docker Hub credentials
+   - Add SonarQube token
+   - Configure Vault token
+
+2. **Security Tools**
+   - Configure SonarQube server
+   - Set up Trivy scanning
+   - Configure Nuclei templates
+
+3. **Monitoring**
+   - Access Grafana:
+     ```bash
+     kubectl port-forward svc/monitoring-grafana 3000:80
+     # Open http://localhost:3000 (admin/prom-operator)
+     ```
+   - Import dashboards for services
+
+### Running the Pipeline
+
+1. **Build Services**
+   ```bash
+   # User Service
+   cd services/user-service
+   docker build -t user-service .
+
+   # Product Service
+   cd ../product-service
+   docker build -t product-service .
+   ```
+
+2. **Deploy to Kubernetes**
+   ```bash
+   kubectl apply -f k8s/user-service/
+   kubectl apply -f k8s/product-service/
+   ```
+
+3. **Verify Deployment**
+   ```bash
+   kubectl get pods
+   kubectl get services
+   ```
 
 ---
 

@@ -1,0 +1,21 @@
+exit-code: 1
+format: table
+severity:
+  - CRITICAL
+  - HIGH
+timeout: 10m
+scan:
+  skip-dirs:
+    - node_modules
+    - .git
+    - .venv
+  security-checks:
+    - vuln
+    - config
+    - secret
+    - license
+vulnerability:
+  type:
+    - os
+    - library
+  ignore-unfixed: true

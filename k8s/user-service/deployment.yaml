@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  labels:
+    app: user-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: user-service
+  template:
+    metadata:
+      labels:
+        app: user-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "5555"
+    spec:
+      containers:
+      - name: user-service
+        image: walidazhari/user-service:latest
+        ports:
+        - containerPort: 5555
+        env:
+        - name: FLASK_ENV
+          value: "production"
+        - name: DATABASE_PATH
+          value: "/app/data/users.db"
+        volumeMounts:
+        - name: user-data
+          mountPath: /app/data
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 5555
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 5555
+          initialDelaySeconds: 5
+          periodSeconds: 10
+      volumes:
+      - name: user-data
+        persistentVolumeClaim:
+          claimName: user-data-pvc

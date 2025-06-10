@@ -1,0 +1,118 @@
+pipeline {
+  agent any
+
+  environment {
+    IMAGE_NAME = 'walidazhari/product-service'
+    SHORT_COMMIT = "${env.GIT_COMMIT?.take(7) ?: 'unknown'}"
+    IMAGE_TAG = "${env.BUILD_NUMBER}-${SHORT_COMMIT}"
+    IMAGE_FULL = "${IMAGE_NAME}:${IMAGE_TAG}"
+    SONAR_PROJECT_KEY = 'product-service'
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        git(
+          url: 'https://github.com/WALIDAZHARI/devsecops-tp.git',
+          branch: 'main',
+          credentialsId: 'github-token'
+        )
+      }
+    }
+
+    stage('Run Tests') {
+      steps {
+        dir('services/product-service') {
+          sh 'python -m pip install -r requirements.txt'
+          sh 'python -m pytest tests/ --junitxml=test-results.xml --cov=src --cov-report=xml'
+        }
+      }
+    }
+
+    stage('SonarQube Analysis') {
+      steps {
+        withSonarQubeEnv('SonarQube') {
+          sh '''
+            sonar-scanner \
+              -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+              -Dsonar.sources=services/product-service/src \
+              -Dsonar.tests=services/product-service/tests \
+              -Dsonar.python.coverage.reportPaths=services/product-service/coverage.xml \
+              -Dsonar.python.xunit.reportPath=services/product-service/test-results.xml
+          '''
+        }
+      }
+    }
+
+    stage('Build Docker Image') {
+      steps {
+        script {
+          echo "Building Docker image: ${env.IMAGE_FULL}"
+          dockerImage = docker.build(env.IMAGE_FULL, "-f services/product-service/Dockerfile services/product-service")
+        }
+      }
+    }
+
+    stage('Security Scans') {
+      parallel {
+        stage('Trivy Scan') {
+          steps {
+            echo "Running Trivy security scan on ${env.IMAGE_FULL}"
+            sh """
+              docker run --rm \
+                -v /var/run/docker.sock:/var/run/docker.sock \
+                -v ${WORKSPACE}/security/trivy:/config \
+                aquasec/trivy:0.50.1 \
+                image --config /config/config.yaml ${env.IMAGE_FULL}
+            """
+          }
+        }
+        stage('Nuclei Scan') {
+          steps {
+            sh """
+              docker run --rm \
+                -v ${WORKSPACE}/security/nuclei:/tests \
+                projectdiscovery/nuclei:latest \
+                -t /tests/custom-tests \
+                -u http://product-service:5556
+            """
+          }
+        }
+      }
+    }
+
+    stage('Login to Docker Hub') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+          sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
+        }
+      }
+    }
+
+    stage('Push to Docker Hub') {
+      steps {
+        script {
+          if (dockerImage) {
+            echo "Pushing image ${env.IMAGE_FULL} to Docker Hub"
+            dockerImage.push(env.IMAGE_TAG)
+            dockerImage.push('latest')
+          } else {
+            error 'Docker image was not built. Aborting push.'
+          }
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      echo 'Cleaning up...'
+      // Clean up any running containers
+      sh 'docker ps -aq | xargs -r docker rm -f || true'
+      // Clean up any dangling images
+      sh 'docker image prune -f || true'
+      // Clean up workspace last
+      cleanWs()
+    }
+  }
+}

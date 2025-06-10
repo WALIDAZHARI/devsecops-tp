@@ -24,7 +24,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 USER appuser
 
 # Copy application code
-COPY --chown=appuser:appuser app.py .
+COPY --chown=appuser:appuser src/app.py .
 
 # Create data directory with write permissions
 RUN mkdir -p /app/data && \

@@ -16,23 +16,27 @@ pipeline {
 
     stage('Checkout') {
       steps {
-        git url: 'https://github.com/WALIDAZHARI/devsecops-tp.git', branch: 'main'
+        git(
+          url: 'https://github.com/WALIDAZHARI/devsecops-tp.git',
+          branch: 'main',
+          credentialsId: 'github-token'
+        )
       }
     }
 
     stage('Build Docker Image') {
       steps {
         script {
-          dockerImage = docker.build("${IMAGE_NAME}:${IMAGE_TAG}", "-f user-service/Dockerfile user-service")
+          dockerImage = docker.build("${IMAGE_NAME}:${IMAGE_TAG}", "-f product-service/Dockerfile product-service")
         }
       }
     }
 
     stage('Trivy Security Scan') {
       steps {
-        sh '''
+        sh """
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.50.1 image ${IMAGE_NAME}:${IMAGE_TAG}
-        '''
+        """
       }
     }
 
@@ -51,6 +55,12 @@ pipeline {
           dockerImage.push("latest")
         }
       }
+    }
+  }
+
+  post {
+    always {
+      cleanWs()
     }
   }
 }

@@ -10,13 +10,10 @@ pipeline {
   }
 
   stages {
-    stage('Checkout') {
+    stage('Verify Workspace') {
       steps {
-        git(
-          url: 'https://github.com/WALIDAZHARI/devsecops-tp.git',
-          branch: 'main',
-          credentialsId: 'github-token'
-        )
+        sh 'pwd && ls -la'
+        sh 'echo "Running build #${BUILD_NUMBER} for commit ${SHORT_COMMIT}"'
       }
     }
 

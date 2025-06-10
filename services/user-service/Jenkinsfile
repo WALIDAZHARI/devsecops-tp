@@ -3,8 +3,7 @@ pipeline {
 
   environment {
     IMAGE_NAME = 'walidazhari/user-service'
-    SHORT_COMMIT = "${env.GIT_COMMIT?.take(7) ?: 'unknown'}"
-    IMAGE_TAG = "${env.BUILD_NUMBER}-${SHORT_COMMIT}"
+    IMAGE_TAG = "${env.BUILD_NUMBER}-simple"
     IMAGE_FULL = "${IMAGE_NAME}:${IMAGE_TAG}"
     SONAR_PROJECT_KEY = 'user-service'
   }
@@ -19,7 +18,7 @@ pipeline {
         sh 'git fetch --depth 1 origin main'
         sh 'git checkout FETCH_HEAD'
         sh 'pwd && ls -la'
-        sh 'echo "Running build #${BUILD_NUMBER} for commit ${SHORT_COMMIT}"'
+        sh 'echo "Running build #${BUILD_NUMBER} with tag ${IMAGE_TAG}"'
       }
     }
     
